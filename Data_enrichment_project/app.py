@@ -22,6 +22,8 @@ import re
 
 logging.basicConfig(level=logging.INFO, format='%(message)s', datefmt='', filename=LOG_FILE, filemode='a')
 
+ip_cache = {}
+
 class SyslogUDPHandler(socketserver.BaseRequestHandler):
 
 	def handle(self):
@@ -32,14 +34,25 @@ class SyslogUDPHandler(socketserver.BaseRequestHandler):
 		match = re.search(ip_pattern, data)
 
 		if match:
-			print("IP:", match.group())
-			try:
-				response = requests.get(f'http://ip-api.com/json/{match.group()}')
-				if response.status_code == 200:
-					ip_info = response.json()
-					data += f" | IP Info: {json.dumps(ip_info)}"
-			except Exception as e:
-				print(f"Error fetching IP info: {e}")
+			ip = match.group()
+			print("IP:", ip)
+
+			if ip in ip_cache:
+				ip_info = ip_cache[ip]
+			else:
+				try:
+					response = requests.get(f'http://ip-api.com/json/{ip}')
+					if response.status_code == 200:
+						ip_info = response.json()
+						ip_cache[ip] = ip_info
+					else:
+						ip_info = None
+				except Exception as e:
+					print(f"Error fetching IP info: {e}")
+					ip_info = None
+
+			if ip_info:
+				data += f" | IP Info: {json.dumps(ip_info)}"
 
 		print("%s : " % self.client_address[0], str(data))
 		logging.info(str(data))
